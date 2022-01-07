@@ -1,5 +1,5 @@
 {
-  "name": "bptf-price-history",
+  "name": "bptf-price-history-service",
   "description": "Service responsible for keeping track of price changes",
   "author": "Nicklas Marc Pedersen",
   "private": true,
