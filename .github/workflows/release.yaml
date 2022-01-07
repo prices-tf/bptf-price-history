@@ -25,7 +25,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-node-
       - name: npm install
-        run: npm ci
+        run: npm ci --no-audit
       - name: Release
         uses: cycjimmy/semantic-release-action@v2
         id: semantic

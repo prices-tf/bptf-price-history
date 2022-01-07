@@ -28,8 +28,8 @@ jobs:
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node-
-      - name: npm install --no-audit
-        run: npm ci
+      - name: npm install
+        run: npm ci --no-audit
       - name: npm build
         run: npm run build
   unit-tests:
@@ -51,8 +51,8 @@ jobs:
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node-
-      - name: npm install --no-audit
-        run: npm ci
+      - name: npm install
+        run: npm ci --no-audit
       - name: npm test
         run: npm run test
   e2e-test:
@@ -76,8 +76,8 @@ jobs:
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node-
-      - name: npm install --no-audit
-        run: npm ci
+      - name: npm install
+        run: npm ci --no-audit
       - name: Run tests
         run: npm run test:e2e
       - name: Stop Docker-Compose
