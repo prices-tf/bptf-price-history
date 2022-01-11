@@ -15,12 +15,10 @@ import {
   Connection,
   FindConditions,
   LessThanOrEqual,
-  MoreThan,
   MoreThanOrEqual,
   Repository,
 } from 'typeorm';
 import { History } from './entities/history.entity';
-import { HistoryInterval } from './interfaces/history-interval.interface';
 import { Price } from './interfaces/price.interface';
 
 @Injectable()
@@ -150,7 +148,7 @@ export class HistoryService {
     from?: Date,
     to?: Date,
     populate?: boolean,
-  ): Promise<Pagination<HistoryInterval>> {
+  ): Promise<Pagination<History>> {
     const where: FindConditions<History> = {
       sku,
     };
@@ -189,7 +187,7 @@ export class HistoryService {
       )
       .addOrderBy('a."createdAt"', 'DESC');
 
-    const result = await paginate<HistoryInterval>(queryBuilder, options);
+    const result = await paginate<History>(queryBuilder, options);
 
     // Loop through all items and convert date to be multiple of interval
     result.items.forEach((v) => {
@@ -219,7 +217,7 @@ export class HistoryService {
           // result
 
           // Get most recent price before from
-          const before: HistoryInterval = await this.repository.findOne({
+          const before = await this.repository.findOne({
             where: {
               sku,
               createdAt: LessThanOrEqual(from),
@@ -232,9 +230,6 @@ export class HistoryService {
           if (before !== undefined) {
             // Set correct date
             before.createdAt = this.getDateFromInterval(fromInterval, interval);
-
-            // Set price as populated
-            before.populated = true;
 
             // Insert price at correct location
             result.items.splice(
@@ -257,7 +252,7 @@ export class HistoryService {
             interval,
           ) !== toInterval
         ) {
-          const newestPrice: HistoryInterval = await this.repository.findOne({
+          const newestPrice = await this.repository.findOne({
             where: {
               sku,
               createdAt: MoreThanOrEqual(to),
@@ -277,9 +272,6 @@ export class HistoryService {
             if (before !== undefined) {
               // Set correct date
               before.createdAt = this.getDateFromInterval(toInterval, interval);
-
-              // Set price as populated
-              before.populated = true;
 
               // Insert price at correct location
               result.items.splice(
@@ -311,7 +303,6 @@ export class HistoryService {
 
           for (let j = 0; j < difference - 1; j++) {
             const history = Object.assign({}, result.items[i + 1]);
-            history.populated = true;
             history.createdAt = this.getDateFromInterval(
               currInterval + (order === 'DESC' ? -j - 1 : j + 1),
               interval,

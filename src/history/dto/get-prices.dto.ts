@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsBoolean,
   IsDate,
@@ -48,6 +48,6 @@ export class GetHistoryWithIntervalDto extends GetHistoryDto {
 
   @IsOptional()
   @IsBoolean()
-  @Type(() => Boolean)
+  @Transform(({ value }) => value === 'true')
   readonly populate?: boolean;
 }

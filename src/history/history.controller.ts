@@ -3,7 +3,6 @@ import { Pagination } from 'nestjs-typeorm-paginate';
 import { GetHistoryDto, GetHistoryWithIntervalDto } from './dto/get-prices.dto';
 import { History } from './entities/history.entity';
 import { HistoryService } from './history.service';
-import { HistoryInterval } from './interfaces/history-interval.interface';
 
 @Controller('history')
 export class HistoryController {
@@ -40,7 +39,7 @@ export class HistoryController {
     )
     query: GetHistoryWithIntervalDto,
     @Param('sku') sku: string,
-  ): Promise<Pagination<HistoryInterval>> {
+  ): Promise<Pagination<History>> {
     return this.historyService.intervalPaginated(
       sku,
       query.interval,
