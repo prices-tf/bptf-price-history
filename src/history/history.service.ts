@@ -18,6 +18,7 @@ import {
   Repository,
 } from 'typeorm';
 import { History } from './entities/history.entity';
+import { HistoryInterval } from './interfaces/history-interval.interface';
 import { Price } from './interfaces/price.interface';
 
 @Injectable()
@@ -120,5 +121,122 @@ export class HistoryService {
       },
       where,
     });
+  }
+
+  /**
+   * Get price history of an item using an interval
+   * @param sku SKU of the item
+   * @param interval Interval to use in milliseconds
+   * @param options Pagination options
+   * @param order Ordering of prices by time
+   * @param from Timestamp to start getting data from
+   * @param populate Populate result with missing intervals using previous price
+   * @returns Paginated price history using interval
+   */
+  async intervalPaginated(
+    sku: string,
+    interval: number,
+    options: IPaginationOptions,
+    order: 'ASC' | 'DESC',
+    from?: Date,
+    populate?: boolean,
+  ): Promise<Pagination<HistoryInterval>> {
+    const where: FindConditions<History> = {
+      sku,
+    };
+
+    if (from) {
+      where.createdAt =
+        order === 'ASC' ? MoreThanOrEqual(from) : LessThanOrEqual(from);
+    }
+
+    const queryBuilder = this.repository.createQueryBuilder('a');
+
+    // FIXME: Potential SQL injection
+    // Can't use parameters because then distinct on doesn't match order by
+
+    queryBuilder
+      .select([
+        'a.sku',
+        'a.buyHalfScrap',
+        'a.buyKeys',
+        'a.sellHalfScrap',
+        'a.sellKeys',
+        'a.createdAt',
+      ])
+      .distinctOn([
+        'FLOOR(EXTRACT(EPOCH FROM a."createdAt") * 1000 / ' + interval + ')',
+      ])
+      .where(where)
+      .orderBy(
+        'FLOOR(EXTRACT(EPOCH FROM a."createdAt") * 1000 / ' + interval + ')',
+        order,
+      )
+      .addOrderBy('a."createdAt"', 'DESC');
+
+    const result = await paginate<HistoryInterval>(queryBuilder, options);
+
+    // Loop through all items and convert date to be multiple of interval
+    result.items.forEach((v) => {
+      v.createdAt = this.getDateFromInterval(
+        this.getIntervalNumber(v.createdAt, interval),
+        interval,
+      );
+    });
+
+    if (populate === true && result.items.length > 1) {
+      // Go through result and populate missing intervals with previous price
+
+      // Get most recent interval number
+      let prevInterval = this.getIntervalNumber(
+        result.items[result.items.length - 1].createdAt,
+        interval,
+      );
+
+      // Loop through all items in result
+      for (let i = result.items.length - 1; i--; ) {
+        const item = result.items[i];
+
+        const currInterval = this.getIntervalNumber(item.createdAt, interval);
+
+        const difference = Math.abs(prevInterval - currInterval);
+
+        // Add new intervals to array
+
+        for (let j = 0; j < difference - 1; j++) {
+          const history = Object.assign({}, result.items[i + 1]);
+          history.populated = true;
+          history.createdAt = this.getDateFromInterval(
+            currInterval + (order === 'DESC' ? -j - 1 : j + 1),
+            interval,
+          );
+          result.items.splice(i + j + 1, 0, history);
+        }
+
+        prevInterval = currInterval;
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Gets the interval number from a date and interval
+   * @param date Date to get interval from
+   * @param interval The interval time to use, in milliseconds
+   * @returns Interval number
+   */
+  private getIntervalNumber(date: Date, interval: number): number {
+    return Math.floor(date.getTime() / interval);
+  }
+
+  /**
+   * Gets a date from an interval and interval number
+   * @param intervalNumber The interval number
+   * @param interval The interval time to use, in milliseconds
+   * @returns
+   */
+  private getDateFromInterval(intervalNumber: number, interval: number): Date {
+    return new Date(interval * intervalNumber);
   }
 }

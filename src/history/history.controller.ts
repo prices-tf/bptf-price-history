@@ -1,14 +1,15 @@
 import { Controller, Get, Param, Query, ValidationPipe } from '@nestjs/common';
 import { Pagination } from 'nestjs-typeorm-paginate';
-import { GetHistoryDto } from './dto/get-prices.dto';
+import { GetHistoryDto, GetHistoryWithIntervalDto } from './dto/get-prices.dto';
 import { History } from './entities/history.entity';
 import { HistoryService } from './history.service';
+import { HistoryInterval } from './interfaces/history-interval.interface';
 
-@Controller('history/:sku')
+@Controller('history')
 export class HistoryController {
   constructor(private readonly historyService: HistoryService) {}
 
-  @Get()
+  @Get(':sku')
   private paginate(
     @Query(
       new ValidationPipe({
@@ -26,6 +27,29 @@ export class HistoryController {
       },
       query?.order,
       query?.from,
+    );
+  }
+
+  @Get(':sku/interval')
+  private async paginateWithInterval(
+    @Query(
+      new ValidationPipe({
+        transform: true,
+      }),
+    )
+    query: GetHistoryWithIntervalDto,
+    @Param('sku') sku: string,
+  ): Promise<Pagination<HistoryInterval>> {
+    return this.historyService.intervalPaginated(
+      sku,
+      query.interval,
+      {
+        page: query.page ?? 1,
+        limit: query.limit ?? 100,
+      },
+      query?.order,
+      query?.from,
+      query?.populate,
     );
   }
 }

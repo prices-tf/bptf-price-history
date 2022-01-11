@@ -1,5 +1,12 @@
 import { Type } from 'class-transformer';
-import { IsDate, IsEnum, IsInt, IsOptional, IsPositive } from 'class-validator';
+import {
+  IsBoolean,
+  IsDate,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsPositive,
+} from 'class-validator';
 
 enum OrderEnum {
   ASC = 'ASC',
@@ -26,4 +33,16 @@ export class GetHistoryDto {
   @IsDate()
   @Type(() => Date)
   readonly from?: Date;
+}
+
+export class GetHistoryWithIntervalDto extends GetHistoryDto {
+  @IsInt()
+  @IsPositive()
+  @Type(() => Number)
+  readonly interval?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  readonly populate?: boolean;
 }
