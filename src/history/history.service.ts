@@ -142,11 +142,9 @@ export class HistoryService {
   async intervalPaginated(
     sku: string,
     interval: number,
-    options: IPaginationOptions,
-    order: 'ASC' | 'DESC',
     from?: Date,
     to?: Date,
-  ): Promise<Pagination<History>> {
+  ): Promise<History[]> {
     const where: FindConditions<History> = {
       sku,
     };
@@ -154,11 +152,9 @@ export class HistoryService {
     if (from && to) {
       where.createdAt = Between(from, to);
     } else if (from) {
-      where.createdAt =
-        order === 'ASC' ? MoreThanOrEqual(from) : LessThanOrEqual(from);
+      where.createdAt = MoreThanOrEqual(from);
     } else if (to) {
-      where.createdAt =
-        order === 'ASC' ? LessThanOrEqual(to) : MoreThanOrEqual(to);
+      where.createdAt = LessThanOrEqual(to);
     }
 
     const queryBuilder = this.repository.createQueryBuilder('a');
@@ -181,14 +177,14 @@ export class HistoryService {
       .where(where)
       .orderBy(
         'FLOOR(EXTRACT(EPOCH FROM a."createdAt") * 1000 / ' + interval + ')',
-        order,
+        'ASC',
       )
       .addOrderBy('a."createdAt"', 'DESC');
 
-    const result = await paginate<History>(queryBuilder, options);
+    const result = await queryBuilder.getMany();
 
     // Loop through all items and convert date to be multiple of interval
-    result.items.forEach((v) => {
+    result.forEach((v) => {
       v.createdAt = this.getDateFromInterval(
         this.getIntervalNumber(v.createdAt, interval),
         interval,
@@ -200,14 +196,10 @@ export class HistoryService {
     // If to and or from is defined, then we want to make sure the intervals
     // match that too
 
-    if (from && result.items.length > 0) {
+    if (from && result.length > 0) {
       const fromInterval = this.getIntervalNumber(from, interval);
       if (
-        this.getIntervalNumber(
-          result.items[order === 'DESC' ? result.items.length - 1 : 0]
-            .createdAt,
-          interval,
-        ) !== fromInterval
+        this.getIntervalNumber(result[0].createdAt, interval) !== fromInterval
       ) {
         // From is specified and oldest price is not on same interval as from
         // so we need to get the most recent price before from and add it to the
@@ -220,7 +212,7 @@ export class HistoryService {
             createdAt: LessThanOrEqual(from),
           },
           order: {
-            createdAt: order,
+            createdAt: 'ASC',
           },
         });
 
@@ -229,22 +221,18 @@ export class HistoryService {
           before.createdAt = this.getDateFromInterval(fromInterval, interval);
 
           // Insert price at correct location
-          result.items.splice(
-            order === 'DESC' ? result.items.length : 0,
-            0,
-            before,
-          );
+          result.splice(0, 0, before);
         }
       }
     }
 
-    if (to && result.items.length > 0) {
+    if (to && result.length > 0) {
       // Same as from, just opposite and with to instead of from
       const toInterval = this.getIntervalNumber(to, interval) - 1;
 
       if (
         this.getIntervalNumber(
-          result.items[order === 'ASC' ? result.items.length - 1 : 0].createdAt,
+          result[result.length - 1].createdAt,
           interval,
         ) !== toInterval
       ) {
@@ -254,7 +242,7 @@ export class HistoryService {
             createdAt: MoreThanOrEqual(to),
           },
           order: {
-            createdAt: order,
+            createdAt: 'DESC',
           },
         });
 
@@ -262,34 +250,29 @@ export class HistoryService {
           // There is a newer price, we want to populate missing intervals up
           // to "to"
 
-          const before =
-            result.items[order === 'ASC' ? result.items.length - 1 : 0];
+          const before = result[result.length - 1];
 
           if (before !== undefined) {
             // Set correct date
             before.createdAt = this.getDateFromInterval(toInterval, interval);
 
             // Insert price at correct location
-            result.items.splice(
-              order === 'ASC' ? result.items.length : 0,
-              0,
-              before,
-            );
+            result.splice(result.length, 0, before);
           }
         }
       }
     }
 
-    if (result.items.length > 1) {
+    if (result.length > 1) {
       // Get most recent interval number
       let prevInterval = this.getIntervalNumber(
-        result.items[result.items.length - 1].createdAt,
+        result[result.length - 1].createdAt,
         interval,
       );
 
       // Loop through all items in result
-      for (let i = result.items.length - 1; i--; ) {
-        const item = result.items[i];
+      for (let i = result.length - 1; i--; ) {
+        const item = result[i];
 
         const currInterval = this.getIntervalNumber(item.createdAt, interval);
 
@@ -298,12 +281,12 @@ export class HistoryService {
         // Add new intervals to array
 
         for (let j = 0; j < difference - 1; j++) {
-          const history = Object.assign({}, result.items[i + 1]);
+          const history = Object.assign({}, result[i + 1]);
           history.createdAt = this.getDateFromInterval(
-            currInterval + (order === 'DESC' ? -j - 1 : j + 1),
+            currInterval + j + 1,
             interval,
           );
-          result.items.splice(i + j + 1, 0, history);
+          result.splice(i + j + 1, 0, history);
         }
 
         prevInterval = currInterval;

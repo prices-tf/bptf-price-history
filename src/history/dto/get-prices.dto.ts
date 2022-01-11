@@ -1,19 +1,38 @@
-import { Transform, Type } from 'class-transformer';
+import { Type } from 'class-transformer';
 import {
-  IsBoolean,
   IsDate,
   IsEnum,
   IsInt,
   IsOptional,
   IsPositive,
+  Min,
 } from 'class-validator';
+import { IsGreater } from '../../common/decorators/is-greater.decorator';
+import { IsSmaller } from '../../common/decorators/is-smaller.decorator';
 
 enum OrderEnum {
   ASC = 'ASC',
   DESC = 'DESC',
 }
 
-export class GetHistoryDto {
+class BaseHistoryDto {
+  @IsOptional()
+  @IsDate()
+  @IsSmaller('to')
+  @Type(() => Date)
+  readonly from?: Date;
+
+  @IsOptional()
+  @IsDate()
+  @IsGreater('from')
+  @Type(() => Date)
+  readonly to?: Date;
+}
+
+export class GetHistoryDto extends BaseHistoryDto {
+  @IsEnum(OrderEnum)
+  readonly order?: OrderEnum;
+
   @IsOptional()
   @IsInt()
   @IsPositive()
@@ -25,24 +44,12 @@ export class GetHistoryDto {
   @IsPositive()
   @Type(() => Number)
   readonly limit?: number;
-
-  @IsEnum(OrderEnum)
-  readonly order?: OrderEnum;
-
-  @IsOptional()
-  @IsDate()
-  @Type(() => Date)
-  readonly from?: Date;
-
-  @IsOptional()
-  @IsDate()
-  @Type(() => Date)
-  readonly to?: Date;
 }
 
-export class GetHistoryWithIntervalDto extends GetHistoryDto {
+export class GetHistoryWithIntervalDto extends BaseHistoryDto {
   @IsInt()
   @IsPositive()
+  @Min(1800000)
   @Type(() => Number)
   readonly interval?: number;
 }

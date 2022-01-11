@@ -39,15 +39,10 @@ export class HistoryController {
     )
     query: GetHistoryWithIntervalDto,
     @Param('sku') sku: string,
-  ): Promise<Pagination<History>> {
+  ): Promise<History[]> {
     return this.historyService.intervalPaginated(
       sku,
       query.interval,
-      {
-        page: query.page ?? 1,
-        limit: query.limit ?? 100,
-      },
-      query?.order,
       query?.from,
       query?.to,
     );
