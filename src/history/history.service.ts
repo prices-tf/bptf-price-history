@@ -137,7 +137,6 @@ export class HistoryService {
    * @param order Ordering of prices by time
    * @param from Timestamp to start getting data from
    * @param to Timestamp to start getting data to
-   * @param populate Populate result with missing intervals using previous price
    * @returns Paginated price history using interval
    */
   async intervalPaginated(
@@ -147,7 +146,6 @@ export class HistoryService {
     order: 'ASC' | 'DESC',
     from?: Date,
     to?: Date,
-    populate?: boolean,
   ): Promise<Pagination<History>> {
     const where: FindConditions<History> = {
       sku,
@@ -197,121 +195,118 @@ export class HistoryService {
       );
     });
 
-    if (populate === true) {
-      // Go through result and populate missing intervals with previous price
+    // Go through result and populate missing intervals with previous price
 
-      // If to and or from is defined, then we want to make sure the intervals
-      // match that too
+    // If to and or from is defined, then we want to make sure the intervals
+    // match that too
 
-      if (from && result.items.length > 0) {
-        const fromInterval = this.getIntervalNumber(from, interval);
-        if (
-          this.getIntervalNumber(
-            result.items[order === 'DESC' ? result.items.length - 1 : 0]
-              .createdAt,
-            interval,
-          ) !== fromInterval
-        ) {
-          // From is specified and oldest price is not on same interval as from
-          // so we need to get the most recent price before from and add it to the
-          // result
+    if (from && result.items.length > 0) {
+      const fromInterval = this.getIntervalNumber(from, interval);
+      if (
+        this.getIntervalNumber(
+          result.items[order === 'DESC' ? result.items.length - 1 : 0]
+            .createdAt,
+          interval,
+        ) !== fromInterval
+      ) {
+        // From is specified and oldest price is not on same interval as from
+        // so we need to get the most recent price before from and add it to the
+        // result
 
-          // Get most recent price before from
-          const before = await this.repository.findOne({
-            where: {
-              sku,
-              createdAt: LessThanOrEqual(from),
-            },
-            order: {
-              createdAt: order,
-            },
-          });
+        // Get most recent price before from
+        const before = await this.repository.findOne({
+          where: {
+            sku,
+            createdAt: LessThanOrEqual(from),
+          },
+          order: {
+            createdAt: order,
+          },
+        });
+
+        if (before !== undefined) {
+          // Set correct date
+          before.createdAt = this.getDateFromInterval(fromInterval, interval);
+
+          // Insert price at correct location
+          result.items.splice(
+            order === 'DESC' ? result.items.length : 0,
+            0,
+            before,
+          );
+        }
+      }
+    }
+
+    if (to && result.items.length > 0) {
+      // Same as from, just opposite and with to instead of from
+      const toInterval = this.getIntervalNumber(to, interval) - 1;
+
+      if (
+        this.getIntervalNumber(
+          result.items[order === 'ASC' ? result.items.length - 1 : 0].createdAt,
+          interval,
+        ) !== toInterval
+      ) {
+        const newestPrice = await this.repository.findOne({
+          where: {
+            sku,
+            createdAt: MoreThanOrEqual(to),
+          },
+          order: {
+            createdAt: order,
+          },
+        });
+
+        if (newestPrice !== undefined) {
+          // There is a newer price, we want to populate missing intervals up
+          // to "to"
+
+          const before =
+            result.items[order === 'ASC' ? result.items.length - 1 : 0];
 
           if (before !== undefined) {
             // Set correct date
-            before.createdAt = this.getDateFromInterval(fromInterval, interval);
+            before.createdAt = this.getDateFromInterval(toInterval, interval);
 
             // Insert price at correct location
             result.items.splice(
-              order === 'DESC' ? result.items.length : 0,
+              order === 'ASC' ? result.items.length : 0,
               0,
               before,
             );
           }
         }
       }
+    }
 
-      if (to && result.items.length > 0) {
-        // Same as from, just opposite and with to instead of from
-        const toInterval = this.getIntervalNumber(to, interval) - 1;
+    if (result.items.length > 1) {
+      // Get most recent interval number
+      let prevInterval = this.getIntervalNumber(
+        result.items[result.items.length - 1].createdAt,
+        interval,
+      );
 
-        if (
-          this.getIntervalNumber(
-            result.items[order === 'ASC' ? result.items.length - 1 : 0]
-              .createdAt,
+      // Loop through all items in result
+      for (let i = result.items.length - 1; i--; ) {
+        const item = result.items[i];
+
+        const currInterval = this.getIntervalNumber(item.createdAt, interval);
+
+        const difference = Math.abs(prevInterval - currInterval);
+
+        // Add new intervals to array
+
+        for (let j = 0; j < difference - 1; j++) {
+          const history = Object.assign({}, result.items[i + 1]);
+          history.createdAt = this.getDateFromInterval(
+            currInterval + (order === 'DESC' ? -j - 1 : j + 1),
             interval,
-          ) !== toInterval
-        ) {
-          const newestPrice = await this.repository.findOne({
-            where: {
-              sku,
-              createdAt: MoreThanOrEqual(to),
-            },
-            order: {
-              createdAt: order,
-            },
-          });
-
-          if (newestPrice !== undefined) {
-            // There is a newer price, we want to populate missing intervals up
-            // to "to"
-
-            const before =
-              result.items[order === 'ASC' ? result.items.length - 1 : 0];
-
-            if (before !== undefined) {
-              // Set correct date
-              before.createdAt = this.getDateFromInterval(toInterval, interval);
-
-              // Insert price at correct location
-              result.items.splice(
-                order === 'ASC' ? result.items.length : 0,
-                0,
-                before,
-              );
-            }
-          }
+          );
+          result.items.splice(i + j + 1, 0, history);
         }
-      }
 
-      if (result.items.length > 1) {
-        // Get most recent interval number
-        let prevInterval = this.getIntervalNumber(
-          result.items[result.items.length - 1].createdAt,
-          interval,
-        );
-
-        // Loop through all items in result
-        for (let i = result.items.length - 1; i--; ) {
-          const item = result.items[i];
-
-          const currInterval = this.getIntervalNumber(item.createdAt, interval);
-
-          const difference = Math.abs(prevInterval - currInterval);
-
-          // Add new intervals to array
-
-          for (let j = 0; j < difference - 1; j++) {
-            const history = Object.assign({}, result.items[i + 1]);
-            history.createdAt = this.getDateFromInterval(
-              currInterval + (order === 'DESC' ? -j - 1 : j + 1),
-              interval,
-            );
-            result.items.splice(i + j + 1, 0, history);
-          }
-
-          prevInterval = currInterval;
-        }
+        prevInterval = currInterval;
       }
     }
 

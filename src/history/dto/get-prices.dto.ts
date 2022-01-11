@@ -45,9 +45,4 @@ export class GetHistoryWithIntervalDto extends GetHistoryDto {
   @IsPositive()
   @Type(() => Number)
   readonly interval?: number;
-
-  @IsOptional()
-  @IsBoolean()
-  @Transform(({ value }) => value === 'true')
-  readonly populate?: boolean;
 }

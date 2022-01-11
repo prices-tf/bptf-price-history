@@ -50,7 +50,6 @@ export class HistoryController {
       query?.order,
       query?.from,
       query?.to,
-      query?.populate,
     );
   }
 }
