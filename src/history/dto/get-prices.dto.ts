@@ -49,7 +49,6 @@ export class GetHistoryDto extends BaseHistoryDto {
 export class GetHistoryWithIntervalDto extends BaseHistoryDto {
   @IsInt()
   @IsPositive()
-  @Min(1800000)
   @Type(() => Number)
   readonly interval?: number;
 }
