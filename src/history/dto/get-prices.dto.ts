@@ -33,6 +33,11 @@ export class GetHistoryDto {
   @IsDate()
   @Type(() => Date)
   readonly from?: Date;
+
+  @IsOptional()
+  @IsDate()
+  @Type(() => Date)
+  readonly to?: Date;
 }
 
 export class GetHistoryWithIntervalDto extends GetHistoryDto {

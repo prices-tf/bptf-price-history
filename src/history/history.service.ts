@@ -11,6 +11,7 @@ import {
   Pagination,
 } from 'nestjs-typeorm-paginate';
 import {
+  Between,
   Connection,
   FindConditions,
   LessThanOrEqual,
@@ -105,14 +106,20 @@ export class HistoryService {
     options: IPaginationOptions,
     order: 'ASC' | 'DESC',
     from?: Date,
+    to?: Date,
   ): Promise<Pagination<History>> {
     const where: FindConditions<History> = {
       sku,
     };
 
-    if (from) {
+    if (from && to) {
+      where.createdAt = Between(from, to);
+    } else if (from) {
       where.createdAt =
         order === 'ASC' ? MoreThanOrEqual(from) : LessThanOrEqual(from);
+    } else if (to) {
+      where.createdAt =
+        order === 'ASC' ? LessThanOrEqual(to) : MoreThanOrEqual(to);
     }
 
     return paginate<History>(this.repository, options, {
@@ -130,6 +137,7 @@ export class HistoryService {
    * @param options Pagination options
    * @param order Ordering of prices by time
    * @param from Timestamp to start getting data from
+   * @param to Timestamp to start getting data to
    * @param populate Populate result with missing intervals using previous price
    * @returns Paginated price history using interval
    */
@@ -139,15 +147,21 @@ export class HistoryService {
     options: IPaginationOptions,
     order: 'ASC' | 'DESC',
     from?: Date,
+    to?: Date,
     populate?: boolean,
   ): Promise<Pagination<HistoryInterval>> {
     const where: FindConditions<History> = {
       sku,
     };
 
-    if (from) {
+    if (from && to) {
+      where.createdAt = Between(from, to);
+    } else if (from) {
       where.createdAt =
         order === 'ASC' ? MoreThanOrEqual(from) : LessThanOrEqual(from);
+    } else if (to) {
+      where.createdAt =
+        order === 'ASC' ? LessThanOrEqual(to) : MoreThanOrEqual(to);
     }
 
     const queryBuilder = this.repository.createQueryBuilder('a');
