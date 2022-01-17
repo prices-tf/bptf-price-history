@@ -92,12 +92,14 @@ export class HistoryService {
       },
     );
 
-    // Publish new price to rabbitmq
-    await this.amqpConnection.publish(
-      'bptf-price-history.created',
-      '*',
-      history,
-    );
+    if (history) {
+      // Publish new price to rabbitmq
+      await this.amqpConnection.publish(
+        'bptf-price-history.created',
+        '*',
+        history,
+      );
+    }
   }
 
   paginate(
